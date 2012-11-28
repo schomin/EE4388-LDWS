@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <vector>
+#include <cmath>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -9,10 +10,7 @@
 #include "edgedetector.h"
 
 using namespace cv;
-int col1 = 0;
-int col2 = 0;
-int x1 = 0;
-int y1 = 0;
+
 
 /** @function main */
 int main( int argc, char** argv )
@@ -35,6 +33,9 @@ int main( int argc, char** argv )
 			frame = cvQueryFrame( capture );
 			//-- If fram is not empty
 			if( !frame.empty() ){
+			
+					int col1 = 0;
+					int col2 = 0;
 
 					cv::Mat image = frame;
 					if (!image.data)
@@ -88,7 +89,7 @@ int main( int argc, char** argv )
 							cv::line( result, pt1, pt2, cv::Scalar(200,0,0), 10); 
 						}
 
-						std::cout << "line: (" << rho << "," << theta << ")\n"; 
+						//std::cout << "line: (" << rho << "," << theta << ")\n"; 
 
 						++it;
 					}
@@ -111,6 +112,58 @@ int main( int argc, char** argv )
 
 					// eliminate inconsistent lines
 					ld.removeLinesOfInconsistentOrientations(ed.getOrientation(),0.4,0.1);
+					
+					std::vector<cv::Vec4i>::const_iterator it2= li.begin();
+					
+					while (it2!=li.end()) {
+						
+						float x1 = (float)(*it2)[0];
+						float x2 = (float)(*it2)[2];
+						float y1 = (float)(*it2)[1];
+						float y2 = (float)(*it2)[3];
+						
+						std::cout << "point 1: (" << x1 << "," << y1 << ")\n"; 
+						std::cout << "point 2: (" << x2 << "," << y2 << ")\n"; 
+						
+						float abdist = sqrt(pow((x2-x1),2)+pow((y2-y1),2));
+						
+						
+						std::cout << "abdist: (" << abdist << ")\n"; 
+						
+						// compute the direction vector D from A to B
+						float dx = (x2-x1)/abdist;
+						float dy = (y2-y1)/abdist;
+						
+						// compute the value t of the closest point to the circle center
+						float t = dx*(230-x1) + dy*(444-y1);
+						
+						// This is the projection of C on the line from A to B.
+						
+						// compute the coordinates of the point E on line and closest to C
+						float ex = t*dx+x1;
+						float ey = t*dy+y1;
+						
+						std::cout << "point e: (" << ex << "," << ey << ")\n"; 
+						
+						// compute the euclidean distance from E to C
+						float ecdist = sqrt(pow((ex-230),2)+pow((ey-444),2));
+						
+						std::cout << "distance: " << ecdist << "\n"; 
+						
+						// test if the line intersects the circle
+						if( ecdist < 20 )
+						{
+							
+							col1 = 1;
+							
+						}else if( ecdist == 20 ){
+							col1 = 1;
+						
+						}
+						
+						++it2;	
+					}
+					
 
 				   // Display the detected line image
 					image= frame;
