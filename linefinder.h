@@ -29,6 +29,11 @@ class LineFinder {
 	  // original image
 	  cv::Mat img;
 
+
+	cv::Point p11;
+	cv::Point p21;
+	cv::Point p31;
+	cv::Point p41;
 	  // vector containing the end points 
 	  // of the detected lines
 	  std::vector<cv::Vec4i> lines;
@@ -81,6 +86,47 @@ class LineFinder {
 
 		  return lines;
 	  }
+	  
+	  // Set a different set of lines
+	  void setLines(std::vector<cv::Vec4i> li) {
+	  
+	  		lines = li;
+	  
+	  }
+	  
+	  // Set a different set of lines
+	  std::vector<cv::Vec4i> getLines() {
+	  
+	  		return lines;
+	  
+	  }
+	  
+	  void shiftLines(float delta){
+	  
+	  	  // Shift the lines
+		  std::vector<cv::Vec4i>::iterator it2= lines.begin();
+	
+		  while (it2!=lines.end()) {
+		  
+		  		std::cout << "before shift: " << (*it2)[0] << "\n";
+		
+			  (*it2)[0] = (*it2)[0] + floor0(delta);
+			  (*it2)[2] = (*it2)[2] + floor0(delta);
+			  
+			  std::cout << "after shift: " << (*it2)[0] << "\n";
+		
+			  ++it2;	
+		  }
+	  
+	  }
+	  
+	  	double floor0( float value )
+		{
+			if (value < 0.0)
+				return ceil( value );
+			else
+				return floor( value );
+		}
 
 	  // Draw the detected lines on an image
 	  void drawDetectedLines(cv::Mat &image, cv::Scalar color=cv::Scalar(0,0,200)) {
@@ -88,15 +134,67 @@ class LineFinder {
 		  // Draw the lines
 		  std::vector<cv::Vec4i>::const_iterator it2= lines.begin();
 	
-		  while (it2!=lines.end()) {
-		
-			  cv::Point pt1((*it2)[0],(*it2)[1]);        
-			  cv::Point pt2((*it2)[2],(*it2)[3]);
+			int height = image.size().height;
+			int width = image.size().width;
+	
 
-			  cv::line( image, pt1, pt2, color);
-		
+			double leftmostx = -1;
+			double leftmosty = -1;
+			double rightmostx = -1;
+			double rightmosty = -1;
+		  while (it2!=lines.end()) {
+		  
+			  cv::Point pt1((*it2)[0]+(width*0.167),(*it2)[1] + height/2);
+			  cv::Point pt2((*it2)[2]+(width*0.167),(*it2)[3] + height/2);
+
+			  
+			  double midx = (double)((*it2)[0] + (*it2)[2])/2;
+			  double midy = (double)((*it2)[1] + (*it2)[3])/2;
+			  
+				  if ( (leftmosty < midy || leftmosty == -1)  && midx < width/2 && midx > 30) {
+				  
+						p11 = pt1;
+						p21 = pt2;
+						leftmostx = midx;
+						leftmosty = midy;
+				  
+				  }
+				  if ((rightmosty < midy || rightmosty == -1) && midx > width/2) {
+				  
+						p31 = pt1;
+						p41 = pt2;
+						rightmostx = midx;
+						rightmosty = midy;
+				  
+				  }
+			  cv::line( image, pt1, pt2, cv::Scalar(0,200,0), 4);
 			  ++it2;	
 		  }
+		  
+		   cv::Point pt1(width/2,0);        
+			  cv::Point pt2(width/2,height);
+			  
+			  cv::line( image, pt1, pt2, color, 4);
+		  
+		  
+		  int lineType = 8;
+
+		   /** Create some points */
+		   cv::Point rook_points[1][4];
+		   rook_points[0][0] = p11;
+		   rook_points[0][1] = p21;
+		   rook_points[0][2] = p31;
+		   rook_points[0][3] = p41;
+		
+		   const cv::Point* ppt[1] = { rook_points[0] };
+		   int npt[] = { 4 };
+		
+		   cv::fillPoly( image,
+					 ppt,
+					 npt,
+					 1,
+					 color,
+					 lineType );
 	  }
 
 	  // Eliminates lines that do not have an orientation equals to
@@ -104,10 +202,11 @@ class LineFinder {
 	  // At least the given percentage of pixels on the line must 
 	  // be within plus or minus delta of the corresponding orientation
 	  std::vector<cv::Vec4i> removeLinesOfInconsistentOrientations(
-		  const cv::Mat &orientations, double percentage, double delta) {
+		  const cv::Mat &orientations, double percentage, double delta, cv::Mat &image) {
 
 			  std::vector<cv::Vec4i>::iterator it= lines.begin();
-	
+				int height = image.size().height;
+			int width = image.size().width;
 			  // check all lines
 			  while (it!=lines.end()) {
 
@@ -138,12 +237,35 @@ class LineFinder {
 				  }
 
 				  double consistency= count/static_cast<double>(i);
+				  
+				  
+				  // Added by Andrew
+				  
+				  // Remove lines that are found to be horizontal
+				  
+				  double angle = atan2(static_cast<double>(y2-y1),static_cast<double>(x2-x1)) *180/PI;
+				  
+				  std::cout << "Angle: " << angle << "\n";
+				  
+				  if (angle < 8 && angle > -8){
+				  	(*it)[0]=(*it)[1]=(*it)[2]=(*it)[3]=0;
+				  }
+				  
+				  //Remove lines that are outside of the realm of the current lane
+				  
+				  double midx = (double)((*it)[0] + (*it)[2])/2;
+			  	  double midy = (double)((*it)[1] + (*it)[3])/2;
+			  	  
+			  	  if (midy < width * 0.12){
+			  	  	(*it)[0]=(*it)[1]=(*it)[2]=(*it)[3]=0;
+			  	  }
+				  
+				  ///end
+				  
 
 				  // set to zero lines of inconsistent orientation
 				  if (consistency < percentage) {
- 
 					  (*it)[0]=(*it)[1]=(*it)[2]=(*it)[3]=0;
-
 				  }
 
 				  ++it;
